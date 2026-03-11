@@ -1,0 +1,407 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CPS Test</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <style>
+        /* Custom animation for the ripple */
+        @keyframes customPing {
+            0% { transform: scale(0.5); opacity: 0.8; }
+            100% { transform: scale(2.5); opacity: 0; }
+        }
+        .ripple {
+            position: absolute;
+            background-color: rgba(255, 255, 255, 0.3);
+            border-radius: 50%;
+            pointer-events: none;
+            animation: customPing 0.5s ease-out forwards;
+        }
+    </style>
+</head>
+<body class="min-h-screen bg-slate-900 text-slate-100 font-sans selection:bg-indigo-500/30">
+    <div class="max-w-4xl mx-auto p-4 md:p-8">
+        
+        <!-- Header -->
+        <header class="flex flex-col md:flex-row items-center justify-between mb-8 gap-4">
+            <div class="flex items-center gap-3">
+                <div class="p-3 bg-indigo-500/10 rounded-xl text-indigo-400">
+                    <i data-lucide="mouse-pointer-2" class="w-8 h-8"></i>
+                </div>
+                <div>
+                    <h1 class="text-3xl font-bold bg-gradient-to-r from-indigo-400 to-cyan-400 bg-clip-text text-transparent">
+                        CPS Test
+                    </h1>
+                    <p class="text-slate-400 text-sm">Check your clicking speed</p>
+                </div>
+            </div>
+            
+            <!-- Best Score Badge -->
+            <div class="flex items-center gap-2 bg-slate-800/50 border border-slate-700/50 py-2 px-4 rounded-full">
+                <i data-lucide="trophy" class="w-4 h-4 text-yellow-500"></i>
+                <span class="text-sm font-medium text-slate-300">
+                    Best <span id="best-score-time">5</span>s: <span id="best-score-val" class="text-white font-bold">0.00</span> CPS
+                </span>
+            </div>
+        </header>
+
+        <!-- Main Content Area -->
+        <div class="grid grid-cols-1 lg:grid-cols-4 gap-6">
+            
+            <!-- Sidebar / Controls -->
+            <div class="lg:col-span-1 space-y-6">
+                <div class="bg-slate-800 rounded-2xl p-5 border border-slate-700">
+                    <h2 class="flex items-center gap-2 text-sm font-semibold text-slate-400 mb-4 uppercase tracking-wider">
+                        <i data-lucide="timer" class="w-4 h-4"></i>
+                        Time Limit
+                    </h2>
+                    <div id="time-options" class="grid grid-cols-2 gap-2">
+                        <!-- Buttons injected via JS -->
+                    </div>
+                </div>
+
+                <!-- Live Stats -->
+                <div class="bg-slate-800 rounded-2xl p-5 border border-slate-700">
+                    <h2 class="flex items-center gap-2 text-sm font-semibold text-slate-400 mb-4 uppercase tracking-wider">
+                        <i data-lucide="activity" class="w-4 h-4"></i>
+                        Live Stats
+                    </h2>
+                    <div class="space-y-4">
+                        <div class="flex justify-between items-end border-b border-slate-700 pb-2">
+                            <span class="text-slate-400">Time Left</span>
+                            <span id="time-left-display" class="text-2xl font-mono text-white">5.0s</span>
+                        </div>
+                        <div class="flex justify-between items-end border-b border-slate-700 pb-2">
+                            <span class="text-slate-400">Clicks</span>
+                            <span id="clicks-display" class="text-2xl font-mono text-white">0</span>
+                        </div>
+                        <div class="flex justify-between items-end pb-2">
+                            <span class="text-slate-400">Current CPS</span>
+                            <span id="current-cps-display" class="text-2xl font-mono text-indigo-400">0.00</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Click Area -->
+            <div class="lg:col-span-3 relative">
+                <button
+                    id="click-area"
+                    class="w-full h-96 sm:h-[500px] rounded-3xl border-2 transition-all duration-150 relative overflow-hidden flex flex-col items-center justify-center gap-4 select-none touch-manipulation bg-slate-800 border-slate-700 hover:bg-slate-700 hover:border-slate-600 cursor-pointer hover:scale-[1.01] active:scale-95"
+                >
+                    <!-- Idle State -->
+                    <div id="idle-content" class="text-center flex flex-col items-center pointer-events-none">
+                        <i data-lucide="mouse-pointer-2" class="w-16 h-16 text-slate-400 animate-bounce mb-4"></i>
+                        <h3 class="text-3xl font-bold text-white mb-2">Click to Start</h3>
+                        <p class="text-slate-400">Start clicking as fast as you can!</p>
+                    </div>
+
+                    <!-- Active State -->
+                    <div id="active-content" class="hidden text-center transform scale-150 transition-transform pointer-events-none">
+                        <div id="active-clicks-display" class="text-7xl font-black text-white font-mono">0</div>
+                        <div class="text-indigo-400 font-semibold tracking-widest uppercase text-sm mt-2">Clicks</div>
+                    </div>
+                </button>
+
+                <!-- Results Overlay -->
+                <div id="results-overlay" class="hidden absolute inset-0 z-10 flex items-center justify-center p-4">
+                    <div class="bg-slate-800/95 backdrop-blur-md p-8 rounded-3xl border border-slate-600 shadow-2xl text-center max-w-sm w-full animate-[zoomIn_0.3s_ease-out]">
+                        <h3 class="text-2xl font-bold text-white mb-6">Test Complete!</h3>
+                        
+                        <div class="mb-8 space-y-4">
+                            <div class="bg-slate-900/50 rounded-2xl p-4 border border-slate-700">
+                                <div class="text-sm text-slate-400 mb-1">Your Score</div>
+                                <div class="text-5xl font-black text-indigo-400 mb-2 font-mono"><span id="final-cps">0.00</span> <span class="text-lg text-slate-500 font-sans">CPS</span></div>
+                                <div class="text-sm text-slate-300"><span id="final-clicks">0</span> clicks in <span id="final-time">5</span> seconds</div>
+                            </div>
+
+                            <div class="bg-slate-900/50 rounded-2xl p-4 border border-slate-700">
+                                <div class="text-sm text-slate-400 mb-1">Rank Achieved</div>
+                                <div id="rank-name" class="text-2xl font-bold mb-1">Rank</div>
+                                <div id="rank-desc" class="text-sm text-slate-400 italic">"Desc"</div>
+                            </div>
+                        </div>
+
+                        <button
+                            id="reset-btn"
+                            class="w-full py-4 bg-indigo-500 hover:bg-indigo-600 active:bg-indigo-700 text-white rounded-xl font-bold text-lg flex items-center justify-center gap-2 transition-colors"
+                        >
+                            <i data-lucide="rotate-ccw" class="w-5 h-5"></i>
+                            Try Again
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Initialize Lucide Icons
+        lucide.createIcons();
+
+        // Constants
+        const TIME_OPTIONS = [1, 3, 5, 10, 30, 60];
+        const RANKS = [
+            { max: 3, name: 'Sloth', color: 'text-stone-400', desc: 'Are you even trying?' },
+            { max: 5, name: 'Turtle', color: 'text-emerald-500', desc: 'Slow and steady.' },
+            { max: 7, name: 'Human', color: 'text-blue-400', desc: 'Average clicking speed.' },
+            { max: 10, name: 'Cheetah', color: 'text-yellow-500', desc: 'Fast! You must play games.' },
+            { max: 14, name: 'Jitter Clicker', color: 'text-orange-500', desc: 'Incredible finger speed!' },
+            { max: Infinity, name: 'Auto-Clicker', color: 'text-red-500', desc: 'Are you a robot?!' },
+        ];
+
+        // State Variables
+        let timeLimit = 5;
+        let timeLeft = 5;
+        let clicks = 0;
+        let isActive = false;
+        let isFinished = false;
+        let bestScores = {};
+        let timerInterval = null;
+
+        // DOM Elements
+        const clickArea = document.getElementById('click-area');
+        const timeOptionsContainer = document.getElementById('time-options');
+        const timeLeftDisplay = document.getElementById('time-left-display');
+        const clicksDisplay = document.getElementById('clicks-display');
+        const currentCpsDisplay = document.getElementById('current-cps-display');
+        const activeClicksDisplay = document.getElementById('active-clicks-display');
+        
+        const idleContent = document.getElementById('idle-content');
+        const activeContent = document.getElementById('active-content');
+        const resultsOverlay = document.getElementById('results-overlay');
+        
+        const bestScoreTimeDisplay = document.getElementById('best-score-time');
+        const bestScoreValDisplay = document.getElementById('best-score-val');
+        
+        const finalCpsDisplay = document.getElementById('final-cps');
+        const finalClicksDisplay = document.getElementById('final-clicks');
+        const finalTimeDisplay = document.getElementById('final-time');
+        const rankNameDisplay = document.getElementById('rank-name');
+        const rankDescDisplay = document.getElementById('rank-desc');
+        const resetBtn = document.getElementById('reset-btn');
+
+        // Initialization
+        function init() {
+            loadBestScores();
+            renderTimeOptions();
+            updateUIStats();
+            updateBestScoreDisplay();
+        }
+
+        // Load scores from LocalStorage
+        function loadBestScores() {
+            try {
+                const saved = localStorage.getItem('cps_best_scores');
+                if (saved) {
+                    bestScores = JSON.parse(saved);
+                }
+            } catch (e) {
+                console.log('Local storage not available');
+            }
+        }
+
+        // Save scores to LocalStorage
+        function saveBestScores() {
+            try {
+                localStorage.setItem('cps_best_scores', JSON.stringify(bestScores));
+            } catch (e) {
+                // Ignore
+            }
+        }
+
+        // Render Time Option Buttons
+        function renderTimeOptions() {
+            timeOptionsContainer.innerHTML = '';
+            TIME_OPTIONS.forEach(time => {
+                const btn = document.createElement('button');
+                btn.textContent = `${time}s`;
+                btn.className = `time-btn py-2 rounded-xl text-sm font-medium transition-all duration-200 ${
+                    timeLimit === time 
+                        ? 'bg-indigo-500 text-white shadow-lg shadow-indigo-500/25' 
+                        : 'bg-slate-700/50 text-slate-300 hover:bg-slate-600 disabled:opacity-50 disabled:cursor-not-allowed'
+                }`;
+                btn.disabled = isActive;
+                btn.onclick = () => handleTimeChange(time);
+                timeOptionsContainer.appendChild(btn);
+            });
+        }
+
+        // Handle Time Selection
+        function handleTimeChange(time) {
+            if (isActive) return;
+            timeLimit = time;
+            timeLeft = time;
+            clicks = 0;
+            isFinished = false;
+            
+            renderTimeOptions();
+            updateBestScoreDisplay();
+            updateUIStats();
+            resetClickAreaUI();
+        }
+
+        // Calculate and Update Best Score Display
+        function updateBestScoreDisplay() {
+            bestScoreTimeDisplay.textContent = timeLimit;
+            bestScoreValDisplay.textContent = bestScores[timeLimit] ? bestScores[timeLimit].toFixed(2) : '0.00';
+        }
+
+        // Main Click Handler
+        clickArea.addEventListener('mousedown', (e) => {
+            if (isFinished) return;
+            
+            createRipple(e);
+
+            if (!isActive) {
+                startGame();
+            }
+            
+            clicks++;
+            updateUIStats();
+        });
+
+        // Touch support to bypass delay and mimic mousedown
+        clickArea.addEventListener('touchstart', (e) => {
+            if (isFinished) return;
+            e.preventDefault(); // Prevent double firing with mouse events and zoom
+            
+            const touch = e.touches[0];
+            createRipple(touch);
+
+            if (!isActive) {
+                startGame();
+            }
+            
+            clicks++;
+            updateUIStats();
+        }, { passive: false });
+
+
+        function createRipple(e) {
+            const rect = clickArea.getBoundingClientRect();
+            const x = e.clientX ? e.clientX - rect.left : rect.width / 2;
+            const y = e.clientY ? e.clientY - rect.top : rect.height / 2;
+
+            const ripple = document.createElement('span');
+            ripple.className = 'ripple';
+            ripple.style.left = `${x - 25}px`;
+            ripple.style.top = `${y - 25}px`;
+            ripple.style.width = '50px';
+            ripple.style.height = '50px';
+
+            clickArea.appendChild(ripple);
+
+            setTimeout(() => {
+                ripple.remove();
+            }, 500);
+        }
+
+        function startGame() {
+            isActive = true;
+            renderTimeOptions(); // Disable buttons
+            
+            // UI Updates for active state
+            idleContent.classList.add('hidden');
+            activeContent.classList.remove('hidden');
+            clickArea.className = 'w-full h-96 sm:h-[500px] rounded-3xl border-2 transition-all duration-150 relative overflow-hidden flex flex-col items-center justify-center gap-4 select-none touch-manipulation bg-indigo-500/10 border-indigo-500/50 hover:bg-indigo-500/20 active:bg-indigo-500/30 hover:scale-[0.99] active:scale-[0.97]';
+
+            // Start Timer
+            timerInterval = setInterval(() => {
+                timeLeft -= 0.1;
+                if (timeLeft <= 0.05) { // Account for floating point precision
+                    timeLeft = 0;
+                    endGame();
+                }
+                updateUIStats();
+            }, 100);
+        }
+
+        function endGame() {
+            clearInterval(timerInterval);
+            isActive = false;
+            isFinished = true;
+            
+            const finalCps = clicks / timeLimit;
+            
+            // Update High Score
+            if (!bestScores[timeLimit] || finalCps > bestScores[timeLimit]) {
+                bestScores[timeLimit] = finalCps;
+                saveBestScores();
+                updateBestScoreDisplay();
+            }
+
+            // Show Results
+            clickArea.className = 'w-full h-96 sm:h-[500px] rounded-3xl border-2 transition-all duration-150 relative overflow-hidden flex flex-col items-center justify-center gap-4 select-none touch-manipulation bg-slate-800 border-slate-700 cursor-default opacity-50';
+            activeContent.classList.add('hidden');
+            
+            // Populate Results overlay
+            finalCpsDisplay.textContent = finalCps.toFixed(2);
+            finalClicksDisplay.textContent = clicks;
+            finalTimeDisplay.textContent = timeLimit;
+            
+            const rank = getRank(finalCps);
+            rankNameDisplay.textContent = rank.name;
+            rankNameDisplay.className = `text-2xl font-bold mb-1 ${rank.color}`;
+            rankDescDisplay.textContent = `"${rank.desc}"`;
+            
+            resultsOverlay.classList.remove('hidden');
+            renderTimeOptions(); // Re-enable buttons
+        }
+
+        resetBtn.addEventListener('click', resetTest);
+
+        function resetTest() {
+            isActive = false;
+            isFinished = false;
+            clicks = 0;
+            timeLeft = timeLimit;
+            clearInterval(timerInterval);
+            
+            resultsOverlay.classList.add('hidden');
+            resetClickAreaUI();
+            updateUIStats();
+            renderTimeOptions();
+        }
+
+        function resetClickAreaUI() {
+            idleContent.classList.remove('hidden');
+            activeContent.classList.add('hidden');
+            clickArea.className = 'w-full h-96 sm:h-[500px] rounded-3xl border-2 transition-all duration-150 relative overflow-hidden flex flex-col items-center justify-center gap-4 select-none touch-manipulation bg-slate-800 border-slate-700 hover:bg-slate-700 hover:border-slate-600 cursor-pointer hover:scale-[1.01] active:scale-95';
+        }
+
+        function updateUIStats() {
+            timeLeftDisplay.textContent = `${Math.max(0, timeLeft).toFixed(1)}s`;
+            clicksDisplay.textContent = clicks;
+            activeClicksDisplay.textContent = clicks;
+
+            let currentCps = 0.00;
+            if (isActive) {
+                const timePassed = timeLimit - timeLeft;
+                if (timePassed > 0) {
+                    currentCps = (clicks / timePassed).toFixed(2);
+                }
+            } else if (clicks > 0) {
+                currentCps = (clicks / timeLimit).toFixed(2);
+            }
+            
+            currentCpsDisplay.textContent = currentCps;
+        }
+
+        function getRank(cps) {
+            for (let i = 0; i < RANKS.length; i++) {
+                if (cps <= RANKS[i].max) {
+                    return RANKS[i];
+                }
+            }
+            return RANKS[RANKS.length - 1];
+        }
+
+        // Run setup
+        init();
+
+    </script>
+</body>
+</html>
